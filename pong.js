@@ -15,12 +15,17 @@ var uProjectionMatrixId;
 
 var projectionMatrix;
 
-var alpha = 0.0;
-var alphaVelocity = 0.001;
-
 // objects to draw
 var solidCube;
 var sphere;
+
+var spherePosition = [0.0, 0.0, 0.0];
+
+var oldTimestamp = 0;
+var xVelocity = 0.01;
+var yVelocity = 0.008;
+var zVelocity = 0.009;
+
 
 /**
  * startup function to be called when the body is loaded
@@ -39,6 +44,9 @@ function startup() {
 function initGL() {
     gl.clearColor(0.2, 0.2, 0.2, 1.0);
     gl.enable(gl.DEPTH_TEST);
+    gl.frontFace(gl.CW); // defines how the front face is drawn
+    gl.cullFace(gl.BACK); // defines which face should be culled
+    gl.enable(gl.CULL_FACE); // enables culling
 
     initShaders();
     initCamera();
@@ -53,7 +61,7 @@ function initCamera() {
     // init model view matrix
     var matrix = mat4.create();
     mat4.identity(matrix);
-    mat4.lookAt(matrix, [0.0, 0.6, 3], [0, 0, 0], [0, 1, 0]);
+    mat4.lookAt(matrix, [0, -0.2, 1.93], [0, 0, 0], [0, 1, 0]);
     pushMatrix(matrix);
 
     projectionMatrix = mat4.create();
@@ -99,9 +107,8 @@ function draw() {
     gl.uniformMatrix4fv(uProjectionMatrixId, false, projectionMatrix);
 
     var cubeMatrix = topMatrix();
-    mat4.translate(cubeMatrix, cubeMatrix, [-0.5, 0.0, 0.0]);
-    mat4.rotateY(cubeMatrix, cubeMatrix, alpha);
-    mat4.scale(cubeMatrix, cubeMatrix, [0.5, 0.5, 0.5]);
+    mat4.translate(cubeMatrix, cubeMatrix, [0.0, 0.0, 0.0]);
+    mat4.scale(cubeMatrix, cubeMatrix, [1, 1, 1.5]);
 
     var normalMatrix = mat3.create();
     mat3.normalFromMat4(normalMatrix, cubeMatrix);
@@ -110,28 +117,47 @@ function draw() {
     drawSolidCube(gl, solidCube, aVertexPositionId, aVertexNormalId, aVertexColorId, uModelViewMatrixId, cubeMatrix);
 
     var sphereMatrix = topMatrix();
-    mat4.translate(sphereMatrix, sphereMatrix, [0.5, 0.0, 0.0]);
-    mat4.rotateY(sphereMatrix, sphereMatrix, alpha);
-    mat4.scale(sphereMatrix, sphereMatrix, [0.5, 0.5, 0.5]);
+    mat4.translate(sphereMatrix, sphereMatrix, spherePosition);
+    mat4.scale(sphereMatrix, sphereMatrix, [0.05, 0.05, 0.05]);
 
-    drawSphere(gl, sphere, aVertexPositionId, aVertexColorId, aVertexNormalId, sphereMatrix, [1.0, 0.0, 0.0])
+    drawSphere(gl, sphere, aVertexPositionId, aVertexColorId, aVertexNormalId, sphereMatrix, [1.0, 1.0, 1.0])
 }
 
-var first = false;
-var lastTimeStamp = 0;
 function drawAnimated(timeStamp) {
-    if (first) {
-        lastTimeStamp = timeStamp;
-        first = false;
-    } else {
-        var timeElapsed = timeStamp - lastTimeStamp;
-        lastTimeStamp = timeStamp;
-        alpha += alphaVelocity * timeElapsed;
-        if (alpha > 2 * Math.PI) {
-            alpha -= 2 * Math.PI;
+    if (timeStamp - oldTimestamp > 10) {
+        oldTimestamp = timeStamp;
+
+        if (spherePosition[0] > 0.4) {
+            xVelocity *= -1;
         }
+
+        if (spherePosition[0] < -0.4) {
+            xVelocity *= -1;
+        }
+
+        if (spherePosition[1] > 0.4) {
+            yVelocity *= -1;
+        }
+
+        if (spherePosition[1] < -0.4) {
+            yVelocity *= -1;
+        }
+
+        if (spherePosition[2] > 1.0) {
+            zVelocity *= -1;
+        }
+
+        if (spherePosition[2] < -0.7) {
+            zVelocity *= -1;
+        }
+
+        spherePosition[0] += xVelocity;
+        spherePosition[1] += yVelocity;
+        spherePosition[2] += zVelocity;
+
+        draw();
     }
-    draw();
+
     window.requestAnimationFrame(drawAnimated);
 }
 // this variable should only be used here for implementing the matrix stack
@@ -256,12 +282,12 @@ function defineSolidCubeSides(gl) {
 }
 
 function defineSolidCubeNormalVectors(gl) {
-    var backNormal = [0, 0, -1],
+    var backNormal = [0, 0, 1],
         frontNormal = [0, 0, 1],
-        rightNormal = [1, 0, 0],
+        rightNormal = [-1, 0, 0],
         leftNormal = [-1, 0, 0],
         topNormal = [0, 1, 0],
-        bottomNormal = [0, -1, 0];
+        bottomNormal = [0, 1, 0];
 
     // make 4 entries, one for each vertex
     var backSide = backNormal.concat(backNormal, backNormal, backNormal);
