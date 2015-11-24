@@ -17,15 +17,16 @@ var projectionMatrix;
 
 // objects to draw
 var solidCube;
+var panel;
 var sphere;
 
 var spherePosition = [0.0, 0.0, 0.0];
+var padelPosition = [0.0, -0.15];
 
 var oldTimestamp = 0;
 var xVelocity = 0.01;
 var yVelocity = 0.008;
 var zVelocity = 0.009;
-
 
 /**
  * startup function to be called when the body is loaded
@@ -36,6 +37,29 @@ function startup() {
     initGL();
     draw();
     window.requestAnimationFrame(drawAnimated);
+    document.onkeydown = checkKey;
+}
+
+function checkKey(e) {
+    const LEFT = 37;
+    const UP = 38;
+    const RIGHT = 39;
+    const DOWN = 40;
+
+    switch (e.keyCode) {
+        case LEFT:
+            padelPosition[0] -= 0.01;
+            break;
+        case UP:
+            padelPosition[1] += 0.01;
+            break;
+        case RIGHT:
+            padelPosition[0] += 0.01;
+            break;
+        case DOWN:
+            padelPosition[1] -= 0.01;
+            break;
+    }
 }
 
 /**
@@ -94,6 +118,7 @@ function setupAttributes() {
  * Setup the objects to be drawn
  */
 function setupObjects() {
+    panel = definePadel(gl);
     solidCube = defineSolidCube(gl);
     sphere = defineSphere(gl, 50, 50);
 }
@@ -106,11 +131,21 @@ function draw() {
     gl.viewport(0, 0, canvas.clientWidth, canvas.clientHeight);
     gl.uniformMatrix4fv(uProjectionMatrixId, false, projectionMatrix);
 
+    var padelMatrix = topMatrix();
+    padelPosition[2] = 1.4;
+    mat4.translate(padelMatrix, padelMatrix, padelPosition);
+    mat4.scale(padelMatrix, padelMatrix, [0.1, 0.1, 0.0]);
+
+    var normalMatrix = mat3.create();
+    mat3.normalFromMat4(normalMatrix, padelMatrix);
+    gl.uniformMatrix3fv(uNormalMatrixId, false, normalMatrix);
+
+    drawSolidCube(gl, panel, aVertexPositionId, aVertexNormalId, aVertexColorId, uModelViewMatrixId, padelMatrix);
+
     var cubeMatrix = topMatrix();
     mat4.translate(cubeMatrix, cubeMatrix, [0.0, 0.0, 0.0]);
     mat4.scale(cubeMatrix, cubeMatrix, [1, 1, 1.5]);
 
-    var normalMatrix = mat3.create();
     mat3.normalFromMat4(normalMatrix, cubeMatrix);
     gl.uniformMatrix3fv(uNormalMatrixId, false, normalMatrix);
 
@@ -260,6 +295,30 @@ function defineSolidCubeColors(gl) {
     return bufferColor;
 }
 
+function definePadelColors(gl) {
+    var backColor = [0.0, 0.0, 0.0],
+        frontColor = [0.0, 0.0, 1.0],
+        rightColor = [0.0, 1.0, 0.0],
+        leftColor = [1.0, 1.0, 0.0],
+        topColor = [1.0, 0.0, 1.0],
+        bottomColor = [0.0, 1.0, 1.0];
+
+    // make 4 entries, one for each vertex
+    var backSide = backColor.concat(backColor, backColor, backColor);
+    var frontSide = frontColor.concat(frontColor, frontColor, frontColor);
+    var rightSide = rightColor.concat(rightColor, rightColor, rightColor);
+    var leftSide = leftColor.concat(leftColor, leftColor, leftColor);
+    var topSide = topColor.concat(topColor, topColor, topColor);
+    var bottomSide = bottomColor.concat(bottomColor, bottomColor, bottomColor);
+
+    var allSides = backSide.concat(frontSide, rightSide, leftSide, topSide, bottomSide);
+
+    var bufferColor = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferColor);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(allSides), gl.STATIC_DRAW);
+    return bufferColor;
+}
+
 function defineSolidCubeSides(gl) {
     var vertexIndices = [
         0, 2, 1, // face 0 (back)
@@ -312,6 +371,18 @@ function defineSolidCube(gl) {
     return {
         bufferVertices: defineSolidCubeVertices(gl),
         bufferColor: defineSolidCubeColors(gl),
+        bufferSides: defineSolidCubeSides(gl),
+        bufferNormal: defineSolidCubeNormalVectors(gl)
+    }
+}
+
+/**
+ * Define the cube, the cube is modelled at the origin
+ */
+function definePadel(gl) {
+    return {
+        bufferVertices: defineSolidCubeVertices(gl),
+        bufferColor: definePadelColors(gl),
         bufferSides: defineSolidCubeSides(gl),
         bufferNormal: defineSolidCubeNormalVectors(gl)
     }
